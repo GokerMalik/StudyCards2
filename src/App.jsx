@@ -1,8 +1,6 @@
 import CategoryList from './CategoryList';
 import DeckList from './DeckList';
 import React, { useState, useEffect } from 'react';
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
 import { initializeSampleData } from './storage';
 import StudySession from './StudySession';
@@ -15,8 +13,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import FolderIcon from '@mui/icons-material/Folder';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { loadCollections, saveCollections } from './storage';
-import { loadCards } from './storage';
+import { saveCollections } from './storage';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -44,7 +41,6 @@ function App() {
   const [categories, setCategories] = useState([]);
   const [decks, setDecks] = useState([]);
   const [collections, setCollections] = useState([]);
-  const [newCollection, setNewCollection] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
   const [selectedDecks, setSelectedDecks] = useState([]);

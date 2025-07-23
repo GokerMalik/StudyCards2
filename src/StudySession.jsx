@@ -17,7 +17,7 @@ function shuffle(array) {
     .map(({ value }) => value);
 }
 
-export default function StudySession({ deckId, collectionId, onBackToDecks, onSessionComplete }) {
+export default function StudySession({ deckId, collectionId, onSessionComplete }) {
   const [deck, setDeck] = useState(null);
   const [collection, setCollection] = useState(null);
   const [allCards, setAllCards] = useState([]);
