@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -30,8 +30,14 @@ const sampleDecks = [
   },
 ];
 
+// Path to data.json
+let dataPath = path.join(app.getPath('userData'), 'data.json');
+
+// Store current window reference for dialogs
+let mainWindow = null;
+
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1000,
     height: 800,
     webPreferences: {
@@ -42,14 +48,69 @@ function createWindow() {
   });
 
   if (!app.isPackaged) {
-    win.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5173');
   } else {
-    win.loadFile(path.join(__dirname, 'dist', 'index.html'));
+    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
   }
-}
 
-// Path to data.json
-const dataPath = path.join(app.getPath('userData'), 'data.json');
+  // Set up the application menu
+  const template = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Load Table',
+          click: async () => {
+            const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+              title: 'Load Table',
+              filters: [{ name: 'JSON', extensions: ['json'] }],
+              properties: ['openFile']
+            });
+            if (!canceled && filePaths && filePaths[0]) {
+              try {
+                const content = fs.readFileSync(filePaths[0], 'utf-8');
+                const data = JSON.parse(content);
+                dataPath = filePaths[0]; // Use this file for future saves
+                // Write to the current dataPath to ensure consistency
+                fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), 'utf-8');
+                // Notify renderer to reload (force reload)
+                mainWindow.webContents.reload();
+              } catch (err) {
+                dialog.showErrorBox('Load Error', 'Failed to load table: ' + err.message);
+              }
+            }
+          }
+        },
+        {
+          label: 'Save Table as',
+          click: async () => {
+            const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+              title: 'Save Table as',
+              filters: [{ name: 'JSON', extensions: ['json'] }],
+              defaultPath: 'data.json'
+            });
+            if (!canceled && filePath) {
+              try {
+                // Read current data
+                let data = { categories: [], decks: [], cards: [] };
+                if (fs.existsSync(dataPath)) {
+                  const content = fs.readFileSync(dataPath, 'utf-8');
+                  data = JSON.parse(content);
+                }
+                fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+                dataPath = filePath; // Use this file for future saves
+              } catch (err) {
+                dialog.showErrorBox('Save Error', 'Failed to save table: ' + err.message);
+              }
+            }
+          }
+        }
+      ]
+    }
+  ];
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
 
 // Ensure data.json exists with sample data if not present
 function ensureDataFile() {

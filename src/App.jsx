@@ -190,12 +190,13 @@ function App() {
       chosenCards = selectedCards;
     } else {
       chosenCards = [...selectedCards].sort((a, b) => {
-        // Never answered correctly come first
-        if (!a.lastCorrect && b.lastCorrect) return -1;
-        if (a.lastCorrect && !b.lastCorrect) return 1;
-        if (!a.lastCorrect && !b.lastCorrect) return 0;
-        // Otherwise, sort by oldest lastCorrect
-        return new Date(a.lastCorrect) - new Date(b.lastCorrect);
+        // Calculate correct ratio for a and b
+        const ratioA = a.totalAnswered === 0 ? 0 : a.correctAnswered / a.totalAnswered;
+        const ratioB = b.totalAnswered === 0 ? 0 : b.correctAnswered / b.totalAnswered;
+        // Lower ratio comes first
+        if (ratioA < ratioB) return -1;
+        if (ratioA > ratioB) return 1;
+        return 0;
       }).slice(0, 20);
     }
     const newCol = { id: 'col_' + Date.now(), name: workoutName.trim(), cardIds: chosenCards.map(card => card.id) };
