@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { loadCategories, saveCategories } from './storage';
+import { loadCategories, saveCategories, loadDecks, saveDecks, loadCards, saveCards, loadCollections, saveCollections } from './storage';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import List from '@mui/material/List';
@@ -39,9 +39,32 @@ export default function CategoryList({ onSelectCategory }) {
   // Delete category
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this category?')) return;
-    const updated = categories.filter(cat => cat.id !== id);
-    await saveCategories(updated);
-    setCategories(updated);
+    // Remove the category
+    const updatedCategories = categories.filter(cat => cat.id !== id);
+    await saveCategories(updatedCategories);
+    setCategories(updatedCategories);
+
+    // Remove all decks in this category
+    const allDecks = await loadDecks();
+    const decksToDelete = allDecks.filter(deck => deck.categoryId === id);
+    const updatedDecks = allDecks.filter(deck => deck.categoryId !== id);
+    await saveDecks(updatedDecks);
+
+    // Remove all cards in those decks
+    if (decksToDelete.length > 0) {
+      const allCards = await loadCards();
+      const cardIdsToDelete = decksToDelete.flatMap(deck => deck.cardIds);
+      const updatedCards = allCards.filter(card => !cardIdsToDelete.includes(card.id));
+      await saveCards(updatedCards);
+
+      // Remove these cards from all collections
+      const allCollections = await loadCollections();
+      const updatedCollections = allCollections.map(col => ({
+        ...col,
+        cardIds: col.cardIds.filter(cardId => !cardIdsToDelete.includes(cardId))
+      }));
+      await saveCollections(updatedCollections);
+    }
   };
 
   // Start renaming

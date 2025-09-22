@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { loadDecks, saveDecks, loadCategories, loadCards, saveCards } from './storage';
+import { loadDecks, saveDecks, loadCategories, loadCards, saveCards, loadCollections, saveCollections } from './storage';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -106,6 +106,14 @@ export default function DeckEdit({ deckId }) {
     // Remove from deck
     const updatedCardIds = deck.cardIds.filter(id => id !== cardId);
     await saveDeck({ cardIds: updatedCardIds });
+
+    // Remove from all collections (workouts)
+    const allCollections = await loadCollections();
+    const updatedCollections = allCollections.map(col => ({
+      ...col,
+      cardIds: col.cardIds.filter(id => id !== cardId)
+    }));
+    await saveCollections(updatedCollections);
   };
 
   // Start editing card

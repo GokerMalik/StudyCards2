@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { loadDecks, saveDecks, loadCategories } from './storage';
+import { loadDecks, saveDecks, loadCategories, loadCards, saveCards, loadCollections, saveCollections } from './storage';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import List from '@mui/material/List';
@@ -45,13 +45,31 @@ export default function DeckList({ categoryId, onSelectDeck, onEditDeck }) {
     setNewDeck('');
   };
 
-  // Delete deck
+  // Delete deck and its cards
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this deck?')) return;
-    const updated = allDecks.filter(deck => deck.id !== id);
-    await saveDecks(updated);
-    setAllDecks(updated);
-    setDecks(updated.filter(deck => deck.categoryId === categoryId));
+    // Find the deck to delete
+    const deckToDelete = allDecks.find(deck => deck.id === id);
+    // Remove the deck
+    const updatedDecks = allDecks.filter(deck => deck.id !== id);
+    await saveDecks(updatedDecks);
+    setAllDecks(updatedDecks);
+    setDecks(updatedDecks.filter(deck => deck.categoryId === categoryId));
+
+    // Remove all cards belonging to this deck
+    if (deckToDelete && deckToDelete.cardIds && deckToDelete.cardIds.length > 0) {
+      const allCards = await loadCards();
+      const updatedCards = allCards.filter(card => !deckToDelete.cardIds.includes(card.id));
+      await saveCards(updatedCards);
+
+      // Remove these cards from all collections (workouts)
+      const allCollections = await loadCollections();
+      const updatedCollections = allCollections.map(col => ({
+        ...col,
+        cardIds: col.cardIds.filter(cardId => !deckToDelete.cardIds.includes(cardId))
+      }));
+      await saveCollections(updatedCollections);
+    }
   };
 
   // Start moving
