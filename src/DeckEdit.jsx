@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import { loadDecks, saveDecks, loadCategories, loadCards, saveCards, loadCollections, saveCollections } from './storage';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -31,6 +35,7 @@ export default function DeckEdit({ deckId }) {
   const [editingBack, setEditingBack] = useState('');
   const [movingCardId, setMovingCardId] = useState(null);
   const [moveTargetDeck, setMoveTargetDeck] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -98,8 +103,13 @@ export default function DeckEdit({ deckId }) {
   };
 
   // Delete card
-  const handleDeleteCard = async (cardId) => {
-    if (!window.confirm('Delete this card?')) return;
+  const handleDeleteCard = (cardId) => {
+    setConfirmDeleteId(cardId);
+  };
+
+  const confirmDelete = async () => {
+    const cardId = confirmDeleteId;
+    setConfirmDeleteId(null);
     const updatedCards = allCards.filter(c => c.id !== cardId);
     await saveCards(updatedCards);
     setAllCards(updatedCards);
@@ -114,6 +124,16 @@ export default function DeckEdit({ deckId }) {
       cardIds: col.cardIds.filter(id => id !== cardId)
     }));
     await saveCollections(updatedCollections);
+    setTimeout(() => {
+      if (inputRef && inputRef.current) inputRef.current.focus();
+    }, 0);
+  };
+
+  const cancelDelete = () => {
+    setConfirmDeleteId(null);
+    setTimeout(() => {
+      if (inputRef && inputRef.current) inputRef.current.focus();
+    }, 0);
   };
 
   // Start editing card
@@ -293,6 +313,16 @@ export default function DeckEdit({ deckId }) {
                         <Button onClick={() => handleEditCard(card)} color="primary" size="small" startIcon={<EditIcon />} sx={{ ml: 1 }} />
                         <Button onClick={() => handleResetStats(card.id)} color="warning" size="small" startIcon={<UndoIcon />} sx={{ ml: 1 }} />
                         <Button onClick={() => handleDeleteCard(card.id)} color="error" size="small" startIcon={<DeleteIcon />} sx={{ ml: 1 }} />
+      <Dialog open={!!confirmDeleteId} onClose={cancelDelete}>
+        <DialogTitle>Delete Card</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete this card?
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelDelete} color="inherit">Cancel</Button>
+          <Button onClick={confirmDelete} color="error">Delete</Button>
+        </DialogActions>
+      </Dialog>
                         <Button onClick={() => handleStartMoveCard(card.id)} color="primary" size="small" startIcon={<SwapHorizIcon />} sx={{ ml: 1 }} />
                       </>
                     )}
