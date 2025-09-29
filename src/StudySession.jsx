@@ -6,6 +6,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import VirtualKeyboard from './VirtualKeyboard';
 import Divider from '@mui/material/Divider';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ReplayIcon from '@mui/icons-material/Replay';
@@ -24,6 +25,7 @@ export default function StudySession({ deckId, collectionId, onSessionComplete }
   const [queue, setQueue] = useState([]); // Now: [{cardId, direction}]
   const [answered, setAnswered] = useState([]); // Now: [{cardId, direction}]
   const [input, setInput] = useState('');
+  const [cursorPos, setCursorPos] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [completed, setCompleted] = useState(false);
   const [awaitingContinue, setAwaitingContinue] = useState(false);
@@ -299,6 +301,7 @@ export default function StudySession({ deckId, collectionId, onSessionComplete }
               inputRef={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
+              onSelect={e => setCursorPos(e.target.selectionStart)}
               autoFocus
               disabled={awaitingContinue}
               size="small"
@@ -312,6 +315,22 @@ export default function StudySession({ deckId, collectionId, onSessionComplete }
               Pass
             </Button>
           </Box>
+          <VirtualKeyboard
+            onInput={char => {
+              if (awaitingContinue) return;
+              // Insert character at cursor position
+              const ref = inputRef.current;
+              let pos = ref ? ref.selectionStart : input.length;
+              const newValue = input.slice(0, pos) + char + input.slice(pos);
+              setInput(newValue);
+              setTimeout(() => {
+                if (ref) {
+                  ref.focus();
+                  ref.setSelectionRange(pos + char.length, pos + char.length);
+                }
+              }, 0);
+            }}
+          />
           {feedback && (
             <Box mt={1} mb={1}>
               <Typography color={feedback.startsWith('Correct!') ? 'success.main' : 'error.main'}>
