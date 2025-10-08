@@ -121,7 +121,7 @@ export default function DeckList({ categoryId, onSelectDeck, onEditDeck }) {
                     <Button
                       variant="text"
                       onClick={() => onEditDeck(deck.id)}
-                      sx={{ flex: 1, justifyContent: 'flex-start', textTransform: 'none', fontWeight: 500, color: 'primary.main', textDecoration: 'underline' }}
+                      sx={{ flex: 1, justifyContent: 'flex-start', textTransform: 'none', fontWeight: 500, color: 'primary.main', textDecoration: 'underline', textAlign: 'left', width: '100%' }}
                     >
                       {deck.name}
                     </Button>

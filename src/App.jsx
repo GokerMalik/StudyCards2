@@ -13,6 +13,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import FolderIcon from '@mui/icons-material/Folder';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import HamburgerMenu from './HamburgerMenu';
 import { saveCollections } from './storage';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import AddIcon from '@mui/icons-material/Add';
@@ -254,9 +255,12 @@ function App() {
   return (
     <Box className="App" sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
       <Box sx={{ p: 2 }}>
-        <Typography variant="h4" gutterBottom>Study Cards</Typography>
-        <Box sx={{ bgcolor: 'background.paper', borderRadius: 2, px: 2, py: 1, boxShadow: 1, display: 'inline-block' }}>
-          <Breadcrumbs separator={<ChevronRightIcon fontSize="small" />} aria-label="breadcrumb" sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <HamburgerMenu />
+          <Typography variant="h4" gutterBottom>Study Cards</Typography>
+        </Box>
+        <Box sx={{ mt: 1, bgcolor: 'background.paper', borderRadius: 2, px: 2, py: 1, boxShadow: 1, display: 'inline-block' }}>
+          <Breadcrumbs separator={<ChevronRightIcon fontSize="small" />} aria-label="breadcrumb" sx={{ mb: 0 }}>
             {breadcrumbs}
           </Breadcrumbs>
         </Box>

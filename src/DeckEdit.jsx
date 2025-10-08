@@ -171,18 +171,21 @@ export default function DeckEdit({ deckId }) {
   // Confirm move card
   const handleConfirmMoveCard = async (cardId) => {
     if (!moveTargetDeck) return;
-    // Remove from current deck
-    const updatedCardIds = deck.cardIds.filter(id => id !== cardId);
-    await saveDeck({ cardIds: updatedCardIds });
-    // Add to target deck
-    const targetDeckIndex = allDecks.findIndex(d => d.id === moveTargetDeck);
-    if (targetDeckIndex !== -1) {
-      const targetDeck = allDecks[targetDeckIndex];
-      const updatedTargetDeck = { ...targetDeck, cardIds: [...targetDeck.cardIds, cardId] };
-      const updatedDecks = allDecks.map(d => d.id === moveTargetDeck ? updatedTargetDeck : d);
-      await saveDecks(updatedDecks);
-      setAllDecks(updatedDecks);
-    }
+    // Update both source and target decks in a single write to avoid race/stale-state issues
+    const updatedDecks = allDecks.map(d => {
+      if (d.id === deck.id) {
+        return { ...d, cardIds: d.cardIds.filter(id => id !== cardId) };
+      }
+      if (d.id === moveTargetDeck) {
+        return { ...d, cardIds: [...d.cardIds, cardId] };
+      }
+      return d;
+    });
+    await saveDecks(updatedDecks);
+    setAllDecks(updatedDecks);
+    // Update the current deck reference to the modified version
+    const updatedCurrent = updatedDecks.find(d => d.id === deck.id);
+    setDeck(updatedCurrent || null);
     setMovingCardId(null);
     setMoveTargetDeck('');
   };

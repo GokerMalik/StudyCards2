@@ -52,64 +52,22 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
   }
-
-  // Set up the application menu
+  // During development show a simple File menu (helps dev workflow). Hide the native menu in packaged builds
   const template = [
     {
       label: 'File',
       submenu: [
-        {
-          label: 'Load Table',
-          click: async () => {
-            const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
-              title: 'Load Table',
-              filters: [{ name: 'JSON', extensions: ['json'] }],
-              properties: ['openFile']
-            });
-            if (!canceled && filePaths && filePaths[0]) {
-              try {
-                const content = fs.readFileSync(filePaths[0], 'utf-8');
-                const data = JSON.parse(content);
-                dataPath = filePaths[0]; // Use this file for future saves
-                // Write to the current dataPath to ensure consistency
-                fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), 'utf-8');
-                // Notify renderer to reload (force reload)
-                mainWindow.webContents.reload();
-              } catch (err) {
-                dialog.showErrorBox('Load Error', 'Failed to load table: ' + err.message);
-              }
-            }
-          }
-        },
-        {
-          label: 'Save Table as',
-          click: async () => {
-            const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
-              title: 'Save Table as',
-              filters: [{ name: 'JSON', extensions: ['json'] }],
-              defaultPath: 'data.json'
-            });
-            if (!canceled && filePath) {
-              try {
-                // Read current data
-                let data = { categories: [], decks: [], cards: [] };
-                if (fs.existsSync(dataPath)) {
-                  const content = fs.readFileSync(dataPath, 'utf-8');
-                  data = JSON.parse(content);
-                }
-                fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-                dataPath = filePath; // Use this file for future saves
-              } catch (err) {
-                dialog.showErrorBox('Save Error', 'Failed to save table: ' + err.message);
-              }
-            }
-          }
-        }
+        { role: 'quit' }
       ]
     }
   ];
   const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
+  if (!app.isPackaged) {
+    Menu.setApplicationMenu(menu);
+  } else {
+    // Hide the native menu in packaged (production) desktop app. The renderer provides the hamburger menu.
+    Menu.setApplicationMenu(null);
+  }
 }
 
 // Ensure data.json exists with sample data if not present
@@ -147,6 +105,45 @@ ipcMain.handle('write-data', async (event, data) => {
   } catch (err) {
     console.error('Error writing data.json:', err);
     return { success: false, error: err.message };
+  }
+});
+
+// IPC: Open native dialog to select a JSON file, read and return its contents
+ipcMain.handle('open-and-load', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Load Table',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      properties: ['openFile']
+    });
+    if (canceled || !filePaths || !filePaths[0]) return { canceled: true };
+    const content = fs.readFileSync(filePaths[0], 'utf-8');
+    const data = JSON.parse(content);
+    dataPath = filePaths[0];
+    // Persist to the primary dataPath so subsequent write-data/write-as work against this file
+    fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), 'utf-8');
+    return { canceled: false, data };
+  } catch (err) {
+    console.error('open-and-load error', err);
+    return { canceled: true, error: err.message };
+  }
+});
+
+// IPC: Show save dialog and write provided data to chosen path
+ipcMain.handle('save-as', async (event, data) => {
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save Table as',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      defaultPath: 'data.json'
+    });
+    if (canceled || !filePath) return { canceled: true };
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    dataPath = filePath;
+    return { canceled: false };
+  } catch (err) {
+    console.error('save-as error', err);
+    return { canceled: true, error: err.message };
   }
 });
 

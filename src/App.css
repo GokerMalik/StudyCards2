@@ -40,3 +40,14 @@
 .read-the-docs {
   color: #888;
 }
+
+.hamburger-root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ensure the top-left placement doesn't overlap other elements */
+.App .hamburger-root {
+  margin-left: 0;
+}
