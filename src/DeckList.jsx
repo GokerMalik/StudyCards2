@@ -8,6 +8,10 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -19,6 +23,7 @@ export default function DeckList({ categoryId, onSelectDeck, onEditDeck }) {
   const [newDeck, setNewDeck] = useState('');
   const [movingId, setMovingId] = useState(null);
   const [moveCategory, setMoveCategory] = useState(categoryId);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
     loadDecks().then(decks => {
@@ -45,9 +50,16 @@ export default function DeckList({ categoryId, onSelectDeck, onEditDeck }) {
     setNewDeck('');
   };
 
-  // Delete deck and its cards
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this deck?')) return;
+  // Delete deck (open confirmation)
+  const handleDelete = (id) => {
+    setConfirmDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
+    if (!id) return;
+
     // Find the deck to delete
     const deckToDelete = allDecks.find(deck => deck.id === id);
     // Remove the deck
@@ -70,6 +82,10 @@ export default function DeckList({ categoryId, onSelectDeck, onEditDeck }) {
       }));
       await saveCollections(updatedCollections);
     }
+  };
+
+  const cancelDelete = () => {
+    setConfirmDeleteId(null);
   };
 
   // Start moving
@@ -146,6 +162,16 @@ export default function DeckList({ categoryId, onSelectDeck, onEditDeck }) {
               Add
             </Button>
           </Box>
+          <Dialog open={!!confirmDeleteId} onClose={cancelDelete}>
+            <DialogTitle>Delete Deck</DialogTitle>
+            <DialogContent>
+              Are you sure you want to delete this deck? This will remove all cards inside the deck and remove them from any collections.
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={cancelDelete} color="inherit">Cancel</Button>
+              <Button onClick={confirmDelete} color="error">Delete</Button>
+            </DialogActions>
+          </Dialog>
         </CardContent>
       </Card>
     </Box>
