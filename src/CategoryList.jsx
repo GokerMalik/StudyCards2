@@ -12,12 +12,17 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 
 export default function CategoryList({ onSelectCategory }) {
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
     loadCategories().then(setCategories);
@@ -36,9 +41,16 @@ export default function CategoryList({ onSelectCategory }) {
     setNewCategory('');
   };
 
-  // Delete category
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this category?')) return;
+  // Delete category (open confirmation dialog)
+  const handleDelete = (id) => {
+    setConfirmDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
+    if (!id) return;
+
     // Remove the category
     const updatedCategories = categories.filter(cat => cat.id !== id);
     await saveCategories(updatedCategories);
@@ -65,6 +77,10 @@ export default function CategoryList({ onSelectCategory }) {
       }));
       await saveCollections(updatedCollections);
     }
+  };
+
+  const cancelDelete = () => {
+    setConfirmDeleteId(null);
   };
 
   // Start renaming
@@ -132,6 +148,16 @@ export default function CategoryList({ onSelectCategory }) {
               Add
             </Button>
           </Box>
+          <Dialog open={!!confirmDeleteId} onClose={cancelDelete}>
+            <DialogTitle>Delete Category</DialogTitle>
+            <DialogContent>
+              Are you sure you want to delete this category? This will remove all decks in the category, their cards, and remove those cards from any collections.
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={cancelDelete} color="inherit">Cancel</Button>
+              <Button onClick={confirmDelete} color="error">Delete</Button>
+            </DialogActions>
+          </Dialog>
         </CardContent>
       </Card>
     </Box>
