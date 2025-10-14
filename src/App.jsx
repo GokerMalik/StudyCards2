@@ -47,6 +47,7 @@ function App() {
   const [selectedDecks, setSelectedDecks] = useState([]);
   const [selectedCollection, setSelectedCollection] = useState(null);
   const [viewCollection, setViewCollection] = useState(null);
+  const [confirmDeleteCollectionId, setConfirmDeleteCollectionId] = useState(null);
   const [allCards, setAllCards] = useState([]);
 
   useEffect(() => {
@@ -129,6 +130,16 @@ function App() {
           </List>
         )}
       </Box>
+      <Dialog open={!!confirmDeleteCollectionId} onClose={cancelDeleteCollection}>
+        <DialogTitle>Delete Collection</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete this collection? This will remove the workout but not the underlying cards.
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelDeleteCollection} color="inherit">Cancel</Button>
+          <Button onClick={confirmDeleteCollection} color="error">Delete</Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>CREATE COLLECTION</DialogTitle>
         <DialogContent>
@@ -205,12 +216,22 @@ function App() {
     setCreateDialogOpen(false);
   };
 
-  // Delete collection
-  const handleDeleteCollection = async (id) => {
-    if (!window.confirm('Delete this collection?')) return;
+  // Delete collection (open confirmation)
+  const handleDeleteCollection = (id) => {
+    setConfirmDeleteCollectionId(id);
+  };
+
+  const confirmDeleteCollection = async () => {
+    const id = confirmDeleteCollectionId;
+    setConfirmDeleteCollectionId(null);
+    if (!id) return;
     const updated = collections.filter(col => col.id !== id);
     await saveCollections(updated);
     setCollections(updated);
+  };
+
+  const cancelDeleteCollection = () => {
+    setConfirmDeleteCollectionId(null);
   };
 
   // Collection view page
