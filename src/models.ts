@@ -22,6 +22,8 @@ export type Card = {
   totalAnswered: number;
   correctAnswered: number;
   lastCorrect?: string; // ISO date string or undefined
+  totalReward?: number;
+  lastSeen?: string; // ISO date string or undefined
 };
 
 export type SessionCard = {

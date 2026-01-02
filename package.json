@@ -14,7 +14,9 @@
     "electron:dev": "set NODE_ENV=development && electron .",
     "electron:start": "set NODE_ENV=production && electron .",
     "start": "electron-forge start",
+    "prepackage": "vite build",
     "package": "electron-forge package",
+    "premake": "vite build",
     "make": "electron-forge make"
   },
   "dependencies": {

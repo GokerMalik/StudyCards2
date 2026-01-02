@@ -2,6 +2,21 @@ const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Workaround: ensure Electron/Chromium disk cache is placed in a writable folder.
+// This helps avoid errors like "Unable to move the cache: Access is denied." on Windows.
+try {
+  const cacheDir = path.join(app.getPath('userData'), 'Cache');
+  // Create the cache directory early so Chromium can use it.
+  fs.mkdirSync(cacheDir, { recursive: true });
+  // Tell Chromium/Electron to use this directory for its disk cache.
+  // Must be set before Chromium initializes heavy subsystems; doing it here is early enough.
+  app.commandLine.appendSwitch('disk-cache-dir', cacheDir);
+  // If GPU cache errors continue, you can disable GPU as a last resort:
+  // app.commandLine.appendSwitch('disable-gpu');
+} catch (e) {
+  console.warn('Unable to prepare disk cache directory:', e && e.message);
+}
+
 // Sample data
 const sampleCategories = [
   { id: 'cat1', name: 'Spanish' },
@@ -47,10 +62,24 @@ function createWindow() {
     },
   });
 
-  if (!app.isPackaged) {
-    mainWindow.loadURL('http://localhost:5173');
+  const devServerUrl = 'http://localhost:5173';
+  const distIndexPath = path.join(__dirname, 'dist', 'index.html');
+  const useDevServer = !app.isPackaged && process.env.NODE_ENV !== 'production';
+
+  if (useDevServer) {
+    mainWindow.loadURL(devServerUrl).catch(() => {
+      if (fs.existsSync(distIndexPath)) {
+        mainWindow.loadFile(distIndexPath);
+        return;
+      }
+      console.error('Dev server not available and dist/index.html is missing.');
+      mainWindow.loadURL('data:text/html,<h2>Renderer not found</h2><p>Run vite build or start the dev server.</p>');
+    });
+  } else if (fs.existsSync(distIndexPath)) {
+    mainWindow.loadFile(distIndexPath);
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
+    console.error('dist/index.html is missing. Run vite build before packaging.');
+    mainWindow.loadURL('data:text/html,<h2>Renderer not found</h2><p>Run vite build before packaging.</p>');
   }
   // During development show a simple File menu (helps dev workflow). Hide the native menu in packaged builds
   const template = [

@@ -34,6 +34,30 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Divider from '@mui/material/Divider';
 initializeSampleData();
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getDaysSince(dateString, now) {
+  if (!dateString) return 0;
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 0;
+  const utcThen = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.floor((utcNow - utcThen) / MS_PER_DAY);
+  return diffDays > 0 ? diffDays : 0;
+}
+
+function getRewardForDays(daysSince) {
+  return Math.min(daysSince + 1, 10);
+}
+
+function getCardScoreLabel(card) {
+  const total = card.totalAnswered || 0;
+  if (!total) return 'n/a';
+  const totalReward = typeof card.totalReward === 'number' ? card.totalReward : (card.correctAnswered || 0);
+  const score = totalReward / total;
+  return Number.isFinite(score) ? score.toFixed(2) : 'n/a';
+}
+
 
 function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -193,18 +217,30 @@ function App() {
       .flatMap(deck => deck.cardIds);
     // Get card objects
     const selectedCards = allCards.filter(card => allCardIds.includes(card.id));
+    const seenCards = selectedCards.filter(card => (card.totalAnswered || 0) > 0);
+    const now = new Date();
+    const getCardScore = (card) => {
+      const total = card.totalAnswered || 0;
+      if (!total) return 0;
+      let totalReward = card.totalReward;
+      if (typeof totalReward !== 'number') {
+        const lastSeenRef = card.lastSeen || card.lastCorrect || '';
+        const daysSince = getDaysSince(lastSeenRef, now);
+        const rewardFactor = getRewardForDays(daysSince);
+        totalReward = (card.correctAnswered || 0) * rewardFactor;
+      }
+      return totalReward / total;
+    };
     let chosenCards;
-    if (selectedCards.length <= 20) {
-      chosenCards = selectedCards;
+    if (seenCards.length <= 20) {
+      chosenCards = seenCards;
     } else {
-      chosenCards = [...selectedCards].sort((a, b) => {
-        // Calculate correct ratio for a and b
-        const ratioA = a.totalAnswered === 0 ? 0 : a.correctAnswered / a.totalAnswered;
-        const ratioB = b.totalAnswered === 0 ? 0 : b.correctAnswered / b.totalAnswered;
-        // Lower ratio comes first
-        if (ratioA < ratioB) return -1;
-        if (ratioA > ratioB) return 1;
-        return 0;
+      chosenCards = [...seenCards].sort((a, b) => {
+        const scoreA = getCardScore(a);
+        const scoreB = getCardScore(b);
+        if (scoreA < scoreB) return -1;
+        if (scoreA > scoreB) return 1;
+        return Math.random() - 0.5;
       }).slice(0, 20);
     }
     const newCol = { id: 'col_' + Date.now(), name: workoutName.trim(), cardIds: chosenCards.map(card => card.id) };
@@ -258,7 +294,7 @@ function App() {
                   Seen: {card.totalAnswered}, Correct: {card.correctAnswered}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ ml: 2, minWidth: 120 }}>
-                  Last Correct: {card.lastCorrect ? new Date(card.lastCorrect).toLocaleString() : 'Never'}
+                  Score: {getCardScoreLabel(card)}
                 </Typography>
               </ListItem>
             ))}

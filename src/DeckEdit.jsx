@@ -13,6 +13,7 @@ import ListItem from '@mui/material/ListItem';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Divider from '@mui/material/Divider';
+import MenuItem from '@mui/material/MenuItem';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
@@ -91,6 +92,7 @@ export default function DeckEdit({ deckId }) {
       back: newBack.trim(),
       totalAnswered: 0,
       correctAnswered: 0,
+      totalReward: 0,
     };
     const updatedCards = [...allCards, newCard];
     await saveCards(updatedCards);
@@ -200,7 +202,7 @@ export default function DeckEdit({ deckId }) {
   const handleResetStats = async (cardId) => {
     if (!window.confirm('Reset statistics for this card?')) return;
     const updatedCards = allCards.map(c =>
-      c.id === cardId ? { ...c, totalAnswered: 0, correctAnswered: 0, lastCorrect: undefined } : c
+      c.id === cardId ? { ...c, totalAnswered: 0, correctAnswered: 0, totalReward: 0, lastCorrect: undefined, lastSeen: undefined } : c
     );
     await saveCards(updatedCards);
     setAllCards(updatedCards);
@@ -211,6 +213,13 @@ export default function DeckEdit({ deckId }) {
   const getCategoryName = (deck) => {
     const cat = categories.find(c => c.id === deck.categoryId);
     return cat ? cat.name : 'Unknown';
+  };
+  const getCardScoreLabel = (card) => {
+    const total = card.totalAnswered || 0;
+    if (!total) return 'n/a';
+    const totalReward = typeof card.totalReward === 'number' ? card.totalReward : (card.correctAnswered || 0);
+    const score = totalReward / total;
+    return Number.isFinite(score) ? score.toFixed(2) : 'n/a';
   };
 
   return (
@@ -231,27 +240,25 @@ export default function DeckEdit({ deckId }) {
             <TextField
               label="Study Mode"
               select
-              SelectProps={{ native: true }}
               value={studyMode}
               onChange={handleStudyModeChange}
               size="small"
               sx={{ minWidth: 140 }}
             >
-              <option value="ask_backside">Ask Backside</option>
-              <option value="ask_frontside">Ask Frontside</option>
-              <option value="ask_both">Ask Both</option>
+              <MenuItem value="ask_backside">Ask Backside</MenuItem>
+              <MenuItem value="ask_frontside">Ask Frontside</MenuItem>
+              <MenuItem value="ask_both">Ask Both</MenuItem>
             </TextField>
             <TextField
               label="Category"
               select
-              SelectProps={{ native: true }}
               value={categoryId}
               onChange={handleCategoryChange}
               size="small"
               sx={{ minWidth: 140 }}
             >
               {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
               ))}
             </TextField>
           </Box>
@@ -311,7 +318,7 @@ export default function DeckEdit({ deckId }) {
                           Seen: {card.totalAnswered}, Correct: {card.correctAnswered}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ ml: 1, minWidth: 120 }}>
-                          Last Correct: {card.lastCorrect ? new Date(card.lastCorrect).toLocaleString() : 'Never'}
+                          Score: {getCardScoreLabel(card)}
                         </Typography>
                         <Button onClick={() => handleEditCard(card)} color="primary" size="small" startIcon={<EditIcon />} sx={{ ml: 1 }} />
                         <Button onClick={() => handleResetStats(card.id)} color="warning" size="small" startIcon={<UndoIcon />} sx={{ ml: 1 }} />

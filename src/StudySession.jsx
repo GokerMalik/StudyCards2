@@ -18,6 +18,22 @@ function shuffle(array) {
     .map(({ value }) => value);
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getDaysSince(dateString, now) {
+  if (!dateString) return 0;
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 0;
+  const utcThen = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.floor((utcNow - utcThen) / MS_PER_DAY);
+  return diffDays > 0 ? diffDays : 0;
+}
+
+function getRewardForDays(daysSince) {
+  return Math.min(daysSince + 1, 10);
+}
+
 export default function StudySession({ deckId, collectionId, onSessionComplete }) {
   const [deck, setDeck] = useState(null);
   const [collection, setCollection] = useState(null);
@@ -134,21 +150,40 @@ export default function StudySession({ deckId, collectionId, onSessionComplete }
   useEffect(() => {
     if (!completed) return;
     async function updateStats() {
-      const now = new Date().toISOString();
+      const now = new Date();
+      const nowIso = now.toISOString();
       const cards = await loadCards();
       const stats = sessionStatsRef.current;
       console.log('Session complete! Logging stats:', stats);
       console.log('Card IDs in session:', cardIds);
       const updatedCards = cards.map(card => {
-        if (stats[card.id]) {
+        const cardStats = stats[card.id];
+        if (cardStats) {
+          const totalDelta = cardStats.total || 0;
+          const correctDelta = cardStats.correct || 0;
+          const prevTotalReward = typeof card.totalReward === 'number'
+            ? card.totalReward
+            : (card.correctAnswered || 0);
+          const lastSeenRef = card.lastSeen || card.lastCorrect || '';
+          const daysSince = getDaysSince(lastSeenRef, now);
+          const rewardForFirstCorrect = correctDelta > 0 ? getRewardForDays(daysSince) : 0;
+          const sameDayReward = getRewardForDays(0);
+          const rewardDelta = correctDelta > 0
+            ? rewardForFirstCorrect + Math.max(correctDelta - 1, 0) * sameDayReward
+            : 0;
           return {
             ...card,
-            totalAnswered: (card.totalAnswered || 0) + stats[card.id].total,
-            correctAnswered: (card.correctAnswered || 0) + stats[card.id].correct,
+            totalAnswered: (card.totalAnswered || 0) + totalDelta,
+            correctAnswered: (card.correctAnswered || 0) + correctDelta,
+            totalReward: prevTotalReward + rewardDelta,
             lastCorrect:
-              (stats[card.id].correct > 0)
-                ? now
+              (correctDelta > 0)
+                ? nowIso
                 : card.lastCorrect || '',
+            lastSeen:
+              (totalDelta > 0)
+                ? nowIso
+                : card.lastSeen || card.lastCorrect || '',
           };
         }
         return card;

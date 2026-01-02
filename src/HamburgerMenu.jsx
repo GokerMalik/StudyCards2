@@ -3,6 +3,12 @@ import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import MenuIcon from '@mui/icons-material/Menu';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
 import { saveCategories, saveDecks, saveCards, loadCategories, loadDecks, loadCards } from './storage';
 
 // Helper to download JSON in browser
@@ -20,6 +26,8 @@ function downloadJSON(filename, data) {
 
 export default function HamburgerMenu() {
   const [anchorEl, setAnchorEl] = React.useState(null);
+  const [saveDialogOpen, setSaveDialogOpen] = React.useState(false);
+  const [saveDialogMessage, setSaveDialogMessage] = React.useState('');
   const fileInputRef = useRef(null);
 
   const open = Boolean(anchorEl);
@@ -81,16 +89,21 @@ export default function HamburgerMenu() {
       if (window && window.electronAPI && window.electronAPI.saveAs) {
         const res = await window.electronAPI.saveAs(data);
         if (res && res.canceled === false) {
-          alert('Saved');
+          setSaveDialogMessage('Table saved');
+          setSaveDialogOpen(true);
         } else if (res && res.error) {
-          alert('Save failed: ' + res.error);
+          setSaveDialogMessage('Save failed: ' + res.error);
+          setSaveDialogOpen(true);
         }
       } else {
         downloadJSON('data.json', data);
+        setSaveDialogMessage('Table downloaded');
+        setSaveDialogOpen(true);
       }
     } catch (err) {
       console.error('Save failed', err);
-      alert('Save failed: ' + err.message);
+      setSaveDialogMessage('Save failed: ' + err.message);
+      setSaveDialogOpen(true);
     }
   };
 
@@ -104,6 +117,15 @@ export default function HamburgerMenu() {
         <MenuItem onClick={handleSaveAs}>Save Table as</MenuItem>
       </Menu>
       <input ref={fileInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={onFileSelected} />
+        <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)}>
+          <DialogTitle>Save Table</DialogTitle>
+          <DialogContent>
+            <DialogContentText>{saveDialogMessage}</DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSaveDialogOpen(false)} autoFocus>Close</Button>
+          </DialogActions>
+        </Dialog>
     </div>
   );
 }
