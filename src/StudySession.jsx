@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { loadDecks, loadCards, saveCards, loadCollections, loadCategories } from './storage';
+import { getDaysSince, getRewardForDays } from './scoreUtils';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -16,22 +17,6 @@ function shuffle(array) {
     .map((value) => ({ value, sort: Math.random() }))
     .sort((a, b) => a.sort - b.sort)
     .map(({ value }) => value);
-}
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function getDaysSince(dateString, now) {
-  if (!dateString) return 0;
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return 0;
-  const utcThen = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-  const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffDays = Math.floor((utcNow - utcThen) / MS_PER_DAY);
-  return diffDays > 0 ? diffDays : 0;
-}
-
-function getRewardForDays(daysSince) {
-  return Math.min(daysSince + 1, 10);
 }
 
 export default function StudySession({ deckId, collectionId, onSessionComplete }) {
@@ -299,7 +284,7 @@ export default function StudySession({ deckId, collectionId, onSessionComplete }
   if (completed) {
     return (
       <Box mt={4} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-        <Card sx={{ minWidth: 350, maxWidth: 500, width: '100%' }}>
+        <Card sx={{ minWidth: 350, maxWidth: 1200, width: '100%' }}>
           <CardContent sx={{ textAlign: 'center' }}>
             <CheckCircleIcon color="success" sx={{ fontSize: 48, mb: 1 }} />
             <Typography variant="h5" gutterBottom>Session complete!</Typography>
@@ -312,7 +297,7 @@ export default function StudySession({ deckId, collectionId, onSessionComplete }
 
   return (
     <Box mt={4} display="flex" justifyContent="center">
-      <Card sx={{ minWidth: 350, maxWidth: 500, width: '100%' }}>
+      <Card sx={{ minWidth: 350, maxWidth: 1200, width: '100%' }}>
         <CardContent>
           <Typography variant="h5" gutterBottom>
             {deck ? `Study Session: ${deck.name}` : collection ? `Study Session: ${collection.name}` : 'Study Session'}

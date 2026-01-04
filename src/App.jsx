@@ -2,7 +2,7 @@ import CategoryList from './CategoryList';
 import DeckList from './DeckList';
 import React, { useState, useEffect } from 'react';
 import './App.css'
-import { initializeSampleData } from './storage';
+import { initializeSampleData, loadCards, loadCategories, loadCollections, loadDecks, saveCollections } from './storage';
 import StudySession from './StudySession';
 import DeckEdit from './DeckEdit';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
@@ -14,7 +14,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import HamburgerMenu from './HamburgerMenu';
-import { saveCollections } from './storage';
+import { removeCollection } from './cardManager';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -32,32 +32,8 @@ import FormGroup from '@mui/material/FormGroup';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Divider from '@mui/material/Divider';
+import { getCardScore, getCardScoreLabel } from './scoreUtils';
 initializeSampleData();
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function getDaysSince(dateString, now) {
-  if (!dateString) return 0;
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return 0;
-  const utcThen = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-  const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffDays = Math.floor((utcNow - utcThen) / MS_PER_DAY);
-  return diffDays > 0 ? diffDays : 0;
-}
-
-function getRewardForDays(daysSince) {
-  return Math.min(daysSince + 1, 10);
-}
-
-function getCardScoreLabel(card) {
-  const total = card.totalAnswered || 0;
-  if (!total) return 'n/a';
-  const totalReward = typeof card.totalReward === 'number' ? card.totalReward : (card.correctAnswered || 0);
-  const score = totalReward / total;
-  return Number.isFinite(score) ? score.toFixed(2) : 'n/a';
-}
-
 
 function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -77,10 +53,10 @@ function App() {
   useEffect(() => {
     // Load categories, decks, and collections for breadcrumbs and home
     (async () => {
-      setCategories(await import('./storage').then(m => m.loadCategories()).then(p => p));
-      setDecks(await import('./storage').then(m => m.loadDecks()).then(p => p));
-      setCollections(await import('./storage').then(m => m.loadCollections()).then(p => p));
-      setAllCards(await import('./storage').then(m => m.loadCards()).then(p => p));
+      setCategories(await loadCategories());
+      setDecks(await loadDecks());
+      setCollections(await loadCollections());
+      setAllCards(await loadCards());
     })();
   }, [selectedCategory, selectedDeck, deckToEdit]);
 
@@ -219,25 +195,14 @@ function App() {
     const selectedCards = allCards.filter(card => allCardIds.includes(card.id));
     const seenCards = selectedCards.filter(card => (card.totalAnswered || 0) > 0);
     const now = new Date();
-    const getCardScore = (card) => {
-      const total = card.totalAnswered || 0;
-      if (!total) return 0;
-      let totalReward = card.totalReward;
-      if (typeof totalReward !== 'number') {
-        const lastSeenRef = card.lastSeen || card.lastCorrect || '';
-        const daysSince = getDaysSince(lastSeenRef, now);
-        const rewardFactor = getRewardForDays(daysSince);
-        totalReward = (card.correctAnswered || 0) * rewardFactor;
-      }
-      return totalReward / total;
-    };
+    const getScore = (card) => getCardScore(card, now);
     let chosenCards;
     if (seenCards.length <= 20) {
       chosenCards = seenCards;
     } else {
       chosenCards = [...seenCards].sort((a, b) => {
-        const scoreA = getCardScore(a);
-        const scoreB = getCardScore(b);
+        const scoreA = getScore(a);
+        const scoreB = getScore(b);
         if (scoreA < scoreB) return -1;
         if (scoreA > scoreB) return 1;
         return Math.random() - 0.5;
@@ -261,9 +226,9 @@ function App() {
     const id = confirmDeleteCollectionId;
     setConfirmDeleteCollectionId(null);
     if (!id) return;
-    const updated = collections.filter(col => col.id !== id);
-    await saveCollections(updated);
-    setCollections(updated);
+    const { collections: updatedCollections, cards: updatedCards } = await removeCollection(id);
+    setCollections(updatedCollections);
+    setAllCards(updatedCards);
   };
 
   const cancelDeleteCollection = () => {
@@ -274,9 +239,9 @@ function App() {
   const renderCollectionView = () => {
     const collection = collections.find(col => col.id === viewCollection);
     if (!collection) return null;
-    const cards = collection.cardIds.map(id => decks.flatMap(deck => deck.cardIds).includes(id) ? allCards.find(c => c.id === id) : null).filter(Boolean);
+    const cards = collection.cardIds.map(id => allCards.find(c => c.id === id)).filter(Boolean);
     return (
-      <Box sx={{ maxWidth: 700, mx: 'auto', mt: 4 }}>
+      <Box sx={{ maxWidth: 1200, mx: 'auto', mt: 4 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => setViewCollection(null)} sx={{ mb: 2 }}>Back</Button>
         <Typography variant="h5" gutterBottom>{collection.name}</Typography>
         <Typography variant="subtitle1" color="text.secondary" gutterBottom>
@@ -290,10 +255,10 @@ function App() {
               <ListItem key={card.id}>
                 <Box sx={{ minWidth: 100, fontWeight: 500 }} component="span">Front: {card.front}</Box>
                 <Box sx={{ minWidth: 100, fontWeight: 500, ml: 2 }} component="span">Back: {card.back}</Box>
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 2, minWidth: 90 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 2, minWidth: 90, whiteSpace: 'nowrap' }}>
                   Seen: {card.totalAnswered}, Correct: {card.correctAnswered}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 2, minWidth: 120 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 2, minWidth: 120, whiteSpace: 'nowrap' }}>
                   Score: {getCardScoreLabel(card)}
                 </Typography>
               </ListItem>
@@ -306,7 +271,7 @@ function App() {
 
   // Handler to reload cards after session complete
   const handleSessionComplete = async () => {
-    setAllCards(await import('./storage').then(m => m.loadCards()).then(p => p));
+    setAllCards(await loadCards());
   };
 
   return (
@@ -325,7 +290,7 @@ function App() {
       {viewCollection ? (
         renderCollectionView()
       ) : !selectedCategory && !selectedDeck && !deckToEdit && !selectedCollection && !viewCollection ? (
-        <Box sx={{ maxWidth: 600, mx: 'auto' }}>
+        <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
           <CategoryList onSelectCategory={setSelectedCategory} />
           <Divider sx={{ my: 4 }} />
           {renderWorkouts()}

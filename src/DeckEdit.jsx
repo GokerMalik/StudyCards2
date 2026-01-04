@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import { loadDecks, saveDecks, loadCategories, loadCards, saveCards, loadCollections, saveCollections } from './storage';
+import { loadDecks, saveDecks, loadCategories, loadCards } from './storage';
+import { addCardToDeck, linkCardToDeck, moveCardBetweenDecks, removeCardFromDeck, updateCard } from './cardManager';
+import { getCardScoreLabel } from './scoreUtils';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -20,6 +22,31 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import UndoIcon from '@mui/icons-material/Undo';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+
+function DeckTargetPicker({ value, onChange, onConfirm, onCancel, actionLabel, actionIcon, decks, getDeckLabel }) {
+  return (
+    <>
+      <TextField
+        select
+        SelectProps={{ native: true }}
+        value={value}
+        onChange={onChange}
+        size="small"
+        sx={{ mr: 1, minWidth: 180 }}
+      >
+        <option value="">Select deck...</option>
+        {decks.map(deck => (
+          <option key={deck.id} value={deck.id}>
+            {getDeckLabel(deck)}
+          </option>
+        ))}
+      </TextField>
+      <Button onClick={onConfirm} color="primary" size="small" startIcon={actionIcon} disabled={!value}>{actionLabel}</Button>
+      <Button onClick={onCancel} color="inherit" size="small">Cancel</Button>
+    </>
+  );
+}
 
 export default function DeckEdit({ deckId }) {
   const [allDecks, setAllDecks] = useState([]);
@@ -36,6 +63,8 @@ export default function DeckEdit({ deckId }) {
   const [editingBack, setEditingBack] = useState('');
   const [movingCardId, setMovingCardId] = useState(null);
   const [moveTargetDeck, setMoveTargetDeck] = useState('');
+  const [cloningCardId, setCloningCardId] = useState(null);
+  const [cloneTargetDeck, setCloneTargetDeck] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
@@ -52,8 +81,6 @@ export default function DeckEdit({ deckId }) {
     }
     fetchData();
   }, [deckId]);
-
-  if (!deck) return <div>Deck not found.</div>;
 
   // Save changes to deck
   const saveDeck = async (updates) => {
@@ -80,7 +107,10 @@ export default function DeckEdit({ deckId }) {
   };
 
   // Get cards for this deck
-  const cards = deck.cardIds.map(id => allCards.find(c => c.id === id)).filter(Boolean);
+  const cards = useMemo(() => {
+    if (!deck) return [];
+    return deck.cardIds.map(id => allCards.find(c => c.id === id)).filter(Boolean);
+  }, [deck, allCards]);
 
   // Add new card
   const handleAddCard = async (e) => {
@@ -94,12 +124,10 @@ export default function DeckEdit({ deckId }) {
       correctAnswered: 0,
       totalReward: 0,
     };
-    const updatedCards = [...allCards, newCard];
-    await saveCards(updatedCards);
+    const { cards: updatedCards, decks: updatedDecks } = await addCardToDeck(deck.id, newCard);
     setAllCards(updatedCards);
-    // Update deck's cardIds
-    const updatedCardIds = [...deck.cardIds, newCard.id];
-    await saveDeck({ cardIds: updatedCardIds });
+    setAllDecks(updatedDecks);
+    setDeck(updatedDecks.find(d => d.id === deck.id) || null);
     setNewFront('');
     setNewBack('');
   };
@@ -112,30 +140,14 @@ export default function DeckEdit({ deckId }) {
   const confirmDelete = async () => {
     const cardId = confirmDeleteId;
     setConfirmDeleteId(null);
-    const updatedCards = allCards.filter(c => c.id !== cardId);
-    await saveCards(updatedCards);
+    const { cards: updatedCards, decks: updatedDecks } = await removeCardFromDeck(deck.id, cardId);
     setAllCards(updatedCards);
-    // Remove from deck
-    const updatedCardIds = deck.cardIds.filter(id => id !== cardId);
-    await saveDeck({ cardIds: updatedCardIds });
-
-    // Remove from all collections (workouts)
-    const allCollections = await loadCollections();
-    const updatedCollections = allCollections.map(col => ({
-      ...col,
-      cardIds: col.cardIds.filter(id => id !== cardId)
-    }));
-    await saveCollections(updatedCollections);
-    setTimeout(() => {
-      if (inputRef && inputRef.current) inputRef.current.focus();
-    }, 0);
+    setAllDecks(updatedDecks);
+    setDeck(updatedDecks.find(d => d.id === deck.id) || null);
   };
 
   const cancelDelete = () => {
     setConfirmDeleteId(null);
-    setTimeout(() => {
-      if (inputRef && inputRef.current) inputRef.current.focus();
-    }, 0);
   };
 
   // Start editing card
@@ -147,10 +159,7 @@ export default function DeckEdit({ deckId }) {
 
   // Save edited card
   const handleSaveEdit = async (cardId) => {
-    const updatedCards = allCards.map(c =>
-      c.id === cardId ? { ...c, front: editingFront, back: editingBack } : c
-    );
-    await saveCards(updatedCards);
+    const updatedCards = await updateCard(cardId, { front: editingFront, back: editingBack });
     setAllCards(updatedCards);
     setEditingCardId(null);
     setEditingFront('');
@@ -168,26 +177,16 @@ export default function DeckEdit({ deckId }) {
   const handleStartMoveCard = (cardId) => {
     setMovingCardId(cardId);
     setMoveTargetDeck('');
+    setCloningCardId(null);
+    setCloneTargetDeck('');
   };
 
   // Confirm move card
   const handleConfirmMoveCard = async (cardId) => {
     if (!moveTargetDeck) return;
-    // Update both source and target decks in a single write to avoid race/stale-state issues
-    const updatedDecks = allDecks.map(d => {
-      if (d.id === deck.id) {
-        return { ...d, cardIds: d.cardIds.filter(id => id !== cardId) };
-      }
-      if (d.id === moveTargetDeck) {
-        return { ...d, cardIds: [...d.cardIds, cardId] };
-      }
-      return d;
-    });
-    await saveDecks(updatedDecks);
+    const { decks: updatedDecks } = await moveCardBetweenDecks(cardId, deck.id, moveTargetDeck);
     setAllDecks(updatedDecks);
-    // Update the current deck reference to the modified version
-    const updatedCurrent = updatedDecks.find(d => d.id === deck.id);
-    setDeck(updatedCurrent || null);
+    setDeck(updatedDecks.find(d => d.id === deck.id) || null);
     setMovingCardId(null);
     setMoveTargetDeck('');
   };
@@ -198,33 +197,47 @@ export default function DeckEdit({ deckId }) {
     setMoveTargetDeck('');
   };
 
+  const handleStartCloneCard = (cardId) => {
+    setCloningCardId(cardId);
+    setCloneTargetDeck('');
+    setMovingCardId(null);
+    setMoveTargetDeck('');
+  };
+
+  const handleConfirmCloneCard = async (cardId) => {
+    if (!cloneTargetDeck) return;
+    const { decks: updatedDecks } = await linkCardToDeck(cloneTargetDeck, cardId);
+    setAllDecks(updatedDecks);
+    setDeck(updatedDecks.find(d => d.id === deck.id) || null);
+    setCloningCardId(null);
+    setCloneTargetDeck('');
+  };
+
+  const handleCancelCloneCard = () => {
+    setCloningCardId(null);
+    setCloneTargetDeck('');
+  };
+
   // Reset statistics for a card
   const handleResetStats = async (cardId) => {
     if (!window.confirm('Reset statistics for this card?')) return;
-    const updatedCards = allCards.map(c =>
-      c.id === cardId ? { ...c, totalAnswered: 0, correctAnswered: 0, totalReward: 0, lastCorrect: undefined, lastSeen: undefined } : c
-    );
-    await saveCards(updatedCards);
+    const updatedCards = await updateCard(cardId, { totalAnswered: 0, correctAnswered: 0, totalReward: 0, lastCorrect: undefined, lastSeen: undefined });
     setAllCards(updatedCards);
   };
 
   // List of other decks for moving
-  const otherDecks = allDecks.filter(d => d.id !== deckId);
+  const otherDecks = useMemo(() => allDecks.filter(d => d.id !== deckId), [allDecks, deckId]);
   const getCategoryName = (deck) => {
     const cat = categories.find(c => c.id === deck.categoryId);
     return cat ? cat.name : 'Unknown';
   };
-  const getCardScoreLabel = (card) => {
-    const total = card.totalAnswered || 0;
-    if (!total) return 'n/a';
-    const totalReward = typeof card.totalReward === 'number' ? card.totalReward : (card.correctAnswered || 0);
-    const score = totalReward / total;
-    return Number.isFinite(score) ? score.toFixed(2) : 'n/a';
-  };
+  const getDeckLabel = (deck) => `${getCategoryName(deck)}: ${deck.name}`;
+
+  if (!deck) return <div>Deck not found.</div>;
 
   return (
     <Box display="flex" justifyContent="center" alignItems="flex-start" mt={4}>
-      <Card sx={{ minWidth: 600, maxWidth: 900, width: '100%' }}>
+      <Card sx={{ minWidth: 600, maxWidth: 1200, width: '100%' }}>
         <CardContent>
           <Typography variant="h5" gutterBottom>
             Edit Deck
@@ -272,7 +285,7 @@ export default function DeckEdit({ deckId }) {
             <Box sx={{ overflowX: 'auto' }}>
               <List>
                 {cards.map(card => (
-                  <ListItem key={card.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ListItem key={card.id} divider sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                     {editingCardId === card.id ? (
                       <>
                         <TextField
@@ -291,49 +304,60 @@ export default function DeckEdit({ deckId }) {
                         <Button onClick={handleCancelEdit} color="inherit" size="small" startIcon={<CancelIcon />}>Cancel</Button>
                       </>
                     ) : movingCardId === card.id ? (
-                      <>
-                        <TextField
-                          select
-                          SelectProps={{ native: true }}
-                          value={moveTargetDeck}
-                          onChange={e => setMoveTargetDeck(e.target.value)}
-                          size="small"
-                          sx={{ mr: 1, minWidth: 180 }}
-                        >
-                          <option value="">Select deck...</option>
-                          {otherDecks.map(d => (
-                            <option key={d.id} value={d.id}>
-                              {getCategoryName(d)}: {d.name}
-                            </option>
-                          ))}
-                        </TextField>
-                        <Button onClick={() => handleConfirmMoveCard(card.id)} color="primary" size="small" startIcon={<SwapHorizIcon />} disabled={!moveTargetDeck}>Move</Button>
-                        <Button onClick={handleCancelMoveCard} color="inherit" size="small">Cancel</Button>
-                      </>
+                      <DeckTargetPicker
+                        value={moveTargetDeck}
+                        onChange={e => setMoveTargetDeck(e.target.value)}
+                        onConfirm={() => handleConfirmMoveCard(card.id)}
+                        onCancel={handleCancelMoveCard}
+                        actionLabel="Move"
+                        actionIcon={<SwapHorizIcon />}
+                        decks={otherDecks}
+                        getDeckLabel={getDeckLabel}
+                      />
+                    ) : cloningCardId === card.id ? (
+                      <DeckTargetPicker
+                        value={cloneTargetDeck}
+                        onChange={e => setCloneTargetDeck(e.target.value)}
+                        onConfirm={() => handleConfirmCloneCard(card.id)}
+                        onCancel={handleCancelCloneCard}
+                        actionLabel="Clone"
+                        actionIcon={<ContentCopyIcon />}
+                        decks={otherDecks}
+                        getDeckLabel={getDeckLabel}
+                      />
                     ) : (
                       <>
-                        <Box sx={{ minWidth: 100, fontWeight: 500 }} component="span">Front: {card.front}</Box>
-                        <Box sx={{ minWidth: 100, fontWeight: 500 }} component="span">Back: {card.back}</Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ ml: 1, minWidth: 90 }}>
-                          Seen: {card.totalAnswered}, Correct: {card.correctAnswered}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ ml: 1, minWidth: 120 }}>
-                          Score: {getCardScoreLabel(card)}
-                        </Typography>
+                        <Box sx={{ minWidth: 200, maxWidth: 400, flex: '0 1 400px' }}>
+                          <Typography component="div" sx={{ fontWeight: 500 }}>
+                            Front: {card.front}
+                          </Typography>
+                          <Typography component="div" sx={{ fontWeight: 500 }}>
+                            Back: {card.back}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ ml: 1, minWidth: 120, display: 'flex', flexDirection: 'column' }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                            Seen: {card.totalAnswered}, Correct: {card.correctAnswered}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                            Score: {getCardScoreLabel(card)}
+                          </Typography>
+                        </Box>
                         <Button onClick={() => handleEditCard(card)} color="primary" size="small" startIcon={<EditIcon />} sx={{ ml: 1 }} />
                         <Button onClick={() => handleResetStats(card.id)} color="warning" size="small" startIcon={<UndoIcon />} sx={{ ml: 1 }} />
                         <Button onClick={() => handleDeleteCard(card.id)} color="error" size="small" startIcon={<DeleteIcon />} sx={{ ml: 1 }} />
       <Dialog open={!!confirmDeleteId} onClose={cancelDelete}>
-        <DialogTitle>Delete Card</DialogTitle>
+        <DialogTitle>Remove Card</DialogTitle>
         <DialogContent>
-          Are you sure you want to delete this card?
+          Remove this card from this deck? It will be deleted only if it is not used elsewhere.
         </DialogContent>
         <DialogActions>
           <Button onClick={cancelDelete} color="inherit">Cancel</Button>
-          <Button onClick={confirmDelete} color="error">Delete</Button>
+          <Button onClick={confirmDelete} color="error">Remove</Button>
         </DialogActions>
       </Dialog>
                         <Button onClick={() => handleStartMoveCard(card.id)} color="primary" size="small" startIcon={<SwapHorizIcon />} sx={{ ml: 1 }} />
+                        <Button onClick={() => handleStartCloneCard(card.id)} color="primary" size="small" startIcon={<ContentCopyIcon />} sx={{ ml: 1 }} />
                       </>
                     )}
                   </ListItem>

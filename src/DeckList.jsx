@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { loadDecks, saveDecks, loadCategories, loadCards, saveCards, loadCollections, saveCollections } from './storage';
+import { loadDecks, saveDecks, loadCategories } from './storage';
+import { removeDeck } from './cardManager';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import List from '@mui/material/List';
@@ -59,29 +60,9 @@ export default function DeckList({ categoryId, onSelectDeck, onEditDeck }) {
     const id = confirmDeleteId;
     setConfirmDeleteId(null);
     if (!id) return;
-
-    // Find the deck to delete
-    const deckToDelete = allDecks.find(deck => deck.id === id);
-    // Remove the deck
-    const updatedDecks = allDecks.filter(deck => deck.id !== id);
-    await saveDecks(updatedDecks);
+    const { decks: updatedDecks } = await removeDeck(id);
     setAllDecks(updatedDecks);
     setDecks(updatedDecks.filter(deck => deck.categoryId === categoryId));
-
-    // Remove all cards belonging to this deck
-    if (deckToDelete && deckToDelete.cardIds && deckToDelete.cardIds.length > 0) {
-      const allCards = await loadCards();
-      const updatedCards = allCards.filter(card => !deckToDelete.cardIds.includes(card.id));
-      await saveCards(updatedCards);
-
-      // Remove these cards from all collections (workouts)
-      const allCollections = await loadCollections();
-      const updatedCollections = allCollections.map(col => ({
-        ...col,
-        cardIds: col.cardIds.filter(cardId => !deckToDelete.cardIds.includes(cardId))
-      }));
-      await saveCollections(updatedCollections);
-    }
   };
 
   const cancelDelete = () => {
@@ -107,7 +88,7 @@ export default function DeckList({ categoryId, onSelectDeck, onEditDeck }) {
 
   return (
     <Box display="flex" justifyContent="center" alignItems="flex-start" mt={4}>
-      <Card sx={{ minWidth: 350, maxWidth: 500 }}>
+      <Card sx={{ minWidth: 350, maxWidth: 1200, width: '100%' }}>
         <CardContent>
           <Typography variant="h5" gutterBottom>
             Decks
@@ -163,11 +144,11 @@ export default function DeckList({ categoryId, onSelectDeck, onEditDeck }) {
             </Button>
           </Box>
           <Dialog open={!!confirmDeleteId} onClose={cancelDelete}>
-            <DialogTitle>Delete Deck</DialogTitle>
-            <DialogContent>
-              Are you sure you want to delete this deck? This will remove all cards inside the deck and remove them from any collections.
-            </DialogContent>
-            <DialogActions>
+          <DialogTitle>Delete Deck</DialogTitle>
+          <DialogContent>
+            Are you sure you want to delete this deck? Cards will be unlinked from this deck and only deleted if they are not used elsewhere.
+          </DialogContent>
+          <DialogActions>
               <Button onClick={cancelDelete} color="inherit">Cancel</Button>
               <Button onClick={confirmDelete} color="error">Delete</Button>
             </DialogActions>

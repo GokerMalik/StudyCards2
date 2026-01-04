@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { loadCategories, saveCategories, loadDecks, saveDecks, loadCards, saveCards, loadCollections, saveCollections } from './storage';
+import { loadCategories, saveCategories, loadDecks } from './storage';
+import { removeDecks } from './cardManager';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import List from '@mui/material/List';
@@ -56,26 +57,11 @@ export default function CategoryList({ onSelectCategory }) {
     await saveCategories(updatedCategories);
     setCategories(updatedCategories);
 
-    // Remove all decks in this category
+    // Remove all decks in this category and prune orphaned cards
     const allDecks = await loadDecks();
     const decksToDelete = allDecks.filter(deck => deck.categoryId === id);
-    const updatedDecks = allDecks.filter(deck => deck.categoryId !== id);
-    await saveDecks(updatedDecks);
-
-    // Remove all cards in those decks
     if (decksToDelete.length > 0) {
-      const allCards = await loadCards();
-      const cardIdsToDelete = decksToDelete.flatMap(deck => deck.cardIds);
-      const updatedCards = allCards.filter(card => !cardIdsToDelete.includes(card.id));
-      await saveCards(updatedCards);
-
-      // Remove these cards from all collections
-      const allCollections = await loadCollections();
-      const updatedCollections = allCollections.map(col => ({
-        ...col,
-        cardIds: col.cardIds.filter(cardId => !cardIdsToDelete.includes(cardId))
-      }));
-      await saveCollections(updatedCollections);
+      await removeDecks(decksToDelete.map(deck => deck.id));
     }
   };
 
@@ -102,7 +88,7 @@ export default function CategoryList({ onSelectCategory }) {
 
   return (
     <Box display="flex" justifyContent="center" alignItems="flex-start" mt={4}>
-      <Card sx={{ minWidth: 350, maxWidth: 500 }}>
+      <Card sx={{ minWidth: 350, maxWidth: 1200, width: '100%' }}>
         <CardContent>
           <Typography variant="h5" gutterBottom>
             Categories
@@ -149,11 +135,11 @@ export default function CategoryList({ onSelectCategory }) {
             </Button>
           </Box>
           <Dialog open={!!confirmDeleteId} onClose={cancelDelete}>
-            <DialogTitle>Delete Category</DialogTitle>
-            <DialogContent>
-              Are you sure you want to delete this category? This will remove all decks in the category, their cards, and remove those cards from any collections.
-            </DialogContent>
-            <DialogActions>
+          <DialogTitle>Delete Category</DialogTitle>
+          <DialogContent>
+            Are you sure you want to delete this category? Decks will be removed and their cards unlinked, and only deleted if they are not used elsewhere.
+          </DialogContent>
+          <DialogActions>
               <Button onClick={cancelDelete} color="inherit">Cancel</Button>
               <Button onClick={confirmDelete} color="error">Delete</Button>
             </DialogActions>
