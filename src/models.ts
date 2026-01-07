@@ -24,6 +24,7 @@ export type Card = {
   lastCorrect?: string; // ISO date string or undefined
   totalReward?: number;
   lastSeen?: string; // ISO date string or undefined
+  totalAttemptWeight?: number;
 };
 
 export type SessionCard = {

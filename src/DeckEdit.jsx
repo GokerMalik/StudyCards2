@@ -5,7 +5,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import { loadDecks, saveDecks, loadCategories, loadCards } from './storage';
 import { addCardToDeck, linkCardToDeck, moveCardBetweenDecks, removeCardFromDeck, updateCard } from './cardManager';
-import { getCardScoreLabel } from './scoreUtils';
+import { getCardAttemptWeightLabel, getCardDayLabel, getCardScoreLabel } from './scoreUtils';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -123,6 +123,7 @@ export default function DeckEdit({ deckId }) {
       totalAnswered: 0,
       correctAnswered: 0,
       totalReward: 0,
+      totalAttemptWeight: 0,
     };
     const { cards: updatedCards, decks: updatedDecks } = await addCardToDeck(deck.id, newCard);
     setAllCards(updatedCards);
@@ -221,7 +222,7 @@ export default function DeckEdit({ deckId }) {
   // Reset statistics for a card
   const handleResetStats = async (cardId) => {
     if (!window.confirm('Reset statistics for this card?')) return;
-    const updatedCards = await updateCard(cardId, { totalAnswered: 0, correctAnswered: 0, totalReward: 0, lastCorrect: undefined, lastSeen: undefined });
+    const updatedCards = await updateCard(cardId, { totalAnswered: 0, correctAnswered: 0, totalReward: 0, totalAttemptWeight: 0, lastCorrect: undefined, lastSeen: undefined });
     setAllCards(updatedCards);
   };
 
@@ -335,12 +336,12 @@ export default function DeckEdit({ deckId }) {
                             Back: {card.back}
                           </Typography>
                         </Box>
-                        <Box sx={{ ml: 1, minWidth: 120, display: 'flex', flexDirection: 'column' }}>
+                        <Box sx={{ ml: 1, minWidth: 240, display: 'flex', flexDirection: 'column' }}>
                           <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                            Seen: {card.totalAnswered}, Correct: {card.correctAnswered}
+                            Seen: {card.totalAnswered}, Correct: {card.correctAnswered}, Day: {getCardDayLabel(card)}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                            Score: {getCardScoreLabel(card)}
+                            Total Weight: {getCardAttemptWeightLabel(card)}, Score: {getCardScoreLabel(card)}
                           </Typography>
                         </Box>
                         <Button onClick={() => handleEditCard(card)} color="primary" size="small" startIcon={<EditIcon />} sx={{ ml: 1 }} />

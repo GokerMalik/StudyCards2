@@ -32,7 +32,7 @@ import FormGroup from '@mui/material/FormGroup';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Divider from '@mui/material/Divider';
-import { getCardScore, getCardScoreLabel } from './scoreUtils';
+import { getCardAttemptWeightLabel, getCardDayLabel, getCardScore, getCardScoreLabel } from './scoreUtils';
 initializeSampleData();
 
 function App() {
@@ -194,8 +194,7 @@ function App() {
     // Get card objects
     const selectedCards = allCards.filter(card => allCardIds.includes(card.id));
     const seenCards = selectedCards.filter(card => (card.totalAnswered || 0) > 0);
-    const now = new Date();
-    const getScore = (card) => getCardScore(card, now);
+    const getScore = (card) => getCardScore(card);
     let chosenCards;
     if (seenCards.length <= 20) {
       chosenCards = seenCards;
@@ -255,12 +254,14 @@ function App() {
               <ListItem key={card.id}>
                 <Box sx={{ minWidth: 100, fontWeight: 500 }} component="span">Front: {card.front}</Box>
                 <Box sx={{ minWidth: 100, fontWeight: 500, ml: 2 }} component="span">Back: {card.back}</Box>
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 2, minWidth: 90, whiteSpace: 'nowrap' }}>
-                  Seen: {card.totalAnswered}, Correct: {card.correctAnswered}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 2, minWidth: 120, whiteSpace: 'nowrap' }}>
-                  Score: {getCardScoreLabel(card)}
-                </Typography>
+                <Box sx={{ ml: 2, minWidth: 160, display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                    Seen: {card.totalAnswered}, Correct: {card.correctAnswered}, Day: {getCardDayLabel(card)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                    Total Weight: {getCardAttemptWeightLabel(card)}, Score: {getCardScoreLabel(card)}
+                  </Typography>
+                </Box>
               </ListItem>
             ))}
           </List>

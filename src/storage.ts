@@ -100,10 +100,10 @@ const sampleCategories: Category[] = [
 ];
 
 const sampleCards: Card[] = [
-  { id: 'card1', front: 'cat', back: 'gato', totalAnswered: 0, correctAnswered: 0 },
-  { id: 'card2', front: 'dog', back: 'perro', totalAnswered: 0, correctAnswered: 0 },
-  { id: 'card3', front: 'house', back: 'maison', totalAnswered: 0, correctAnswered: 0 },
-  { id: 'card4', front: 'water', back: 'eau', totalAnswered: 0, correctAnswered: 0 },
+  { id: 'card1', front: 'cat', back: 'gato', totalAnswered: 0, correctAnswered: 0, totalReward: 0, totalAttemptWeight: 0 },
+  { id: 'card2', front: 'dog', back: 'perro', totalAnswered: 0, correctAnswered: 0, totalReward: 0, totalAttemptWeight: 0 },
+  { id: 'card3', front: 'house', back: 'maison', totalAnswered: 0, correctAnswered: 0, totalReward: 0, totalAttemptWeight: 0 },
+  { id: 'card4', front: 'water', back: 'eau', totalAnswered: 0, correctAnswered: 0, totalReward: 0, totalAttemptWeight: 0 },
 ];
 
 const sampleDecks: Deck[] = [

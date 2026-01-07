@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { loadDecks, loadCards, saveCards, loadCollections, loadCategories } from './storage';
-import { getDaysSince, getRewardForDays } from './scoreUtils';
+import { getDaysSince, getPositiveWeight, getNegativeWeight } from './scoreUtils';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -146,21 +146,41 @@ export default function StudySession({ deckId, collectionId, onSessionComplete }
         if (cardStats) {
           const totalDelta = cardStats.total || 0;
           const correctDelta = cardStats.correct || 0;
-          const prevTotalReward = typeof card.totalReward === 'number'
+          const prevTotalAnswered = card.totalAnswered || 0;
+          const prevAttemptWeight = typeof card.totalAttemptWeight === 'number'
+            ? card.totalAttemptWeight
+            : prevTotalAnswered * getPositiveWeight(0);
+          const prevCorrectWeight = typeof card.totalReward === 'number'
             ? card.totalReward
-            : (card.correctAnswered || 0);
+            : prevTotalAnswered * getPositiveWeight(0);
           const lastSeenRef = card.lastSeen || card.lastCorrect || '';
           const daysSince = getDaysSince(lastSeenRef, now);
-          const rewardForFirstCorrect = correctDelta > 0 ? getRewardForDays(daysSince) : 0;
-          const sameDayReward = getRewardForDays(0);
-          const rewardDelta = correctDelta > 0
-            ? rewardForFirstCorrect + Math.max(correctDelta - 1, 0) * sameDayReward
-            : 0;
+          const positiveWeight = getPositiveWeight(daysSince);
+          const negativeWeight = getNegativeWeight(daysSince);
+          const sameDayPositive = getPositiveWeight(0);
+          const sameDayNegative = getNegativeWeight(0);
+          let attemptWeightDelta = 0;
+          let correctWeightDelta = 0;
+          if (totalDelta > 0) {
+            if (correctDelta > 0) {
+              attemptWeightDelta += positiveWeight;
+              correctWeightDelta += positiveWeight;
+              const remainingCorrect = Math.max(correctDelta - 1, 0);
+              const remainingWrong = Math.max(totalDelta - correctDelta, 0);
+              attemptWeightDelta += remainingCorrect * sameDayPositive + remainingWrong * sameDayNegative;
+              correctWeightDelta += remainingCorrect * sameDayPositive;
+            } else {
+              attemptWeightDelta += negativeWeight;
+              const remainingWrong = Math.max(totalDelta - 1, 0);
+              attemptWeightDelta += remainingWrong * sameDayNegative;
+            }
+          }
           return {
             ...card,
-            totalAnswered: (card.totalAnswered || 0) + totalDelta,
+            totalAnswered: prevTotalAnswered + totalDelta,
             correctAnswered: (card.correctAnswered || 0) + correctDelta,
-            totalReward: prevTotalReward + rewardDelta,
+            totalReward: prevCorrectWeight + correctWeightDelta,
+            totalAttemptWeight: prevAttemptWeight + attemptWeightDelta,
             lastCorrect:
               (correctDelta > 0)
                 ? nowIso
