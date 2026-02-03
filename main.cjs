@@ -106,6 +106,7 @@ function ensureDataFile() {
       categories: sampleCategories,
       decks: sampleDecks,
       cards: sampleCards,
+      collections: [],
     };
     fs.writeFileSync(dataPath, JSON.stringify(initialData, null, 2), 'utf-8');
   }
@@ -116,13 +117,22 @@ ipcMain.handle('read-data', async () => {
   try {
     if (!fs.existsSync(dataPath)) {
       // If file doesn't exist, return default structure
-      return { categories: [], decks: [], cards: [] };
+      return { categories: [], decks: [], cards: [], collections: [] };
     }
     const content = fs.readFileSync(dataPath, 'utf-8');
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    // Backwards compatibility: collections may be missing in older files
+    if (!parsed || typeof parsed !== 'object') {
+      return { categories: [], decks: [], cards: [], collections: [] };
+    }
+    if (!Array.isArray(parsed.collections)) parsed.collections = [];
+    if (!Array.isArray(parsed.categories)) parsed.categories = [];
+    if (!Array.isArray(parsed.decks)) parsed.decks = [];
+    if (!Array.isArray(parsed.cards)) parsed.cards = [];
+    return parsed;
   } catch (err) {
     console.error('Error reading data.json:', err);
-    return { categories: [], decks: [], cards: [] };
+    return { categories: [], decks: [], cards: [], collections: [] };
   }
 });
 

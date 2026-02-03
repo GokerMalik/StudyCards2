@@ -9,7 +9,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
-import { saveCategories, saveDecks, saveCards, loadCategories, loadDecks, loadCards } from './storage';
+import { saveCategories, saveDecks, saveCards, saveCollections, loadCategories, loadDecks, loadCards, loadCollections } from './storage';
 
 // Helper to download JSON in browser
 function downloadJSON(filename, data) {
@@ -49,6 +49,7 @@ export default function HamburgerMenu() {
         await saveCategories(data.categories || []);
         await saveDecks(data.decks || []);
         await saveCards(data.cards || []);
+        await saveCollections(data.collections || []);
         window.location.reload();
       } catch (err) {
         console.error('Load failed', err);
@@ -69,6 +70,7 @@ export default function HamburgerMenu() {
       await saveCategories(data.categories || []);
       await saveDecks(data.decks || []);
       await saveCards(data.cards || []);
+      await saveCollections(data.collections || []);
       // Reload to update UI
       window.location.reload();
     } catch (err) {
@@ -85,6 +87,7 @@ export default function HamburgerMenu() {
         categories: await loadCategories(),
         decks: await loadDecks(),
         cards: await loadCards(),
+        collections: await loadCollections(),
       };
       if (window && window.electronAPI && window.electronAPI.saveAs) {
         const res = await window.electronAPI.saveAs(data);

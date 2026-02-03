@@ -4,8 +4,8 @@ import { Category, Deck, Card, Collection } from './models';
 declare global {
   interface Window {
     electronAPI?: {
-      readData: () => Promise<{ categories: Category[]; decks: Deck[]; cards: Card[] }>;
-      writeData: (data: { categories: Category[]; decks: Deck[]; cards: Card[] }) => Promise<any>;
+      readData: () => Promise<{ categories: Category[]; decks: Deck[]; cards: Card[]; collections?: Collection[] }>;
+      writeData: (data: { categories: Category[]; decks: Deck[]; cards: Card[]; collections?: Collection[] }) => Promise<any>;
     };
   }
 }
